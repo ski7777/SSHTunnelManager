@@ -2,8 +2,8 @@ package remote
 
 import (
 	"github.com/ski7777/SSHTunnelManager/internal/config"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
-	"log"
 	"time"
 )
 
@@ -18,7 +18,8 @@ type Remote struct {
 	Keys      []config.SSHKey
 	sshconfig ssh.ClientConfig
 	Client    *ssh.Client
-	stop      bool
+	Stop      bool
+	Logger *zap.SugaredLogger
 }
 
 func (r *Remote) genConfig() {
@@ -43,16 +44,20 @@ func (r *Remote) genConfig() {
 
 func (r *Remote) Start(cb func(rn string, state int)) {
 	r.genConfig()
+	r.Logger.Infow("Initialized remote")
 remoteloop:
-	for !r.stop {
+	for !r.Stop {
 		var err error
+		r.Logger.Infow("Connecting remote",)
 		r.Client, err = ssh.Dial("tcp", r.Config.Addr, &r.sshconfig)
 		if err != nil {
-			log.Println(err)
+			r.Logger.Infow("Failed connecting remote", "reason",err)
 			continue remoteloop
 		}
+		r.Logger.Infow("Connected remote",)
 		go cb(r.Name, StateUp)
-		_ = r.Client.Wait()
+		err = r.Client.Wait()
+		r.Logger.Infow("Disconnected remote", "reason", err)
 		go cb(r.Name, StateDown)
 	}
 }

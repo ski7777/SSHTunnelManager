@@ -3,9 +3,9 @@ package connection
 import (
 	"github.com/ski7777/SSHTunnelManager/internal/config"
 	"github.com/ski7777/SSHTunnelManager/internal/remote"
+	"go.uber.org/zap"
 	"golang.org/x/crypto/ssh"
 	"io"
-	"log"
 	"net"
 )
 
@@ -18,6 +18,7 @@ type Connection struct {
 	dialer           func() (net.Conn, error)
 	dest             net.Listener
 	srcs             []net.Conn
+	Logger           *zap.SugaredLogger
 }
 
 func (c *Connection) RemoteCallback(r string, state int) {
@@ -41,7 +42,7 @@ func (c *Connection) RemoteCallback(r string, state int) {
 
 func (c *Connection) connect() {
 	var err error
-
+	c.Logger.Infow("Enabling connection")
 	var dialer func(n, addr string) (net.Conn, error)
 	if c.Source.Remote == "" {
 		dialer = net.Dial
@@ -70,7 +71,7 @@ func (c *Connection) connect() {
 	}
 	c.dest, err = listener(c.Destination.Type, c.Destination.Addr)
 	if err != nil {
-		log.Println(err)
+		c.Logger.Warnw("Listening failed", "reason", err)
 		c.close()
 		return
 	}
@@ -86,6 +87,7 @@ runner:
 }
 
 func (c *Connection) disconnect() {
+	c.Logger.Infow("Disabling connection")
 	c.close()
 }
 
@@ -105,11 +107,15 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) handleClient(client net.Conn) {
+	l:=c.Logger.With("client",client.RemoteAddr())
+	l.Debugw("Connecting")
 	r, err := c.dialer()
 	if err != nil {
-		log.Println(err)
+		c.Logger.Warnw("Dialing failed", "reason", err)
 		if r != nil {
-			_ = r.Close()
+			if err := r.Close();err!=nil{
+				l.Warnw("Failed closing dial-out connection", "reason", err)
+			}
 		}
 		return
 	}
@@ -118,16 +124,26 @@ func (c *Connection) handleClient(client net.Conn) {
 	chDone := make(chan bool)
 
 	go func() {
-		_, _ = io.Copy(client, r)
+		if _, err := io.Copy(client, r);err!=nil&&err!=io.EOF{
+			l.Warnw("Failed transfering data", "reason", err)
+		}
 		chDone <- true
 	}()
 
 	go func() {
-		_, _ = io.Copy(r, client)
+		if _, err := io.Copy( r,client);err!=nil&&err!=io.EOF{
+			l.Warnw("Failed transfering data", "reason", err)
+		}
 		chDone <- true
 	}()
 
 	<-chDone
 	_ = client.Close()
-	_ = r.Close()
+	if err := client.Close();err!=nil&&err!=io.EOF{
+		l.Warnw("Failed closing dial-in connection", "reason", err)
+	}
+	if err := r.Close();err!=nil&&err!=io.EOF{
+		l.Warnw("Failed closing dial-out connection", "reason", err)
+	}
+	l.Debugw("Disconnected")
 }

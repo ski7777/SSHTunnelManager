@@ -6,10 +6,10 @@ import (
 	"github.com/akamensky/argparse"
 	"github.com/ski7777/SSHTunnelManager/internal/config"
 	"github.com/ski7777/SSHTunnelManager/internal/connection"
+	"github.com/ski7777/SSHTunnelManager/internal/logger"
 	"github.com/ski7777/SSHTunnelManager/internal/remote"
 	"golang.org/x/crypto/ssh"
 	"io/ioutil"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -24,14 +24,17 @@ func main() {
 		fmt.Print(parser.Usage(err))
 		return
 	}
+
+	l := logger.GetLogger()
+	l.Infow("Starting up")
 	confbytes, err := ioutil.ReadAll(conffile)
 	if err != nil {
-		log.Fatalln(err)
+		l.Fatal("Failed reading the configuration file", err)
 	}
 	_ = conffile.Close()
 	conf := config.Config{}
 	if err := json.Unmarshal(confbytes, &conf); err != nil {
-		log.Fatalln(err)
+		l.Fatal("Failed parsing the configuration file", err)
 	}
 
 	var connections []*connection.Connection
@@ -45,12 +48,18 @@ func main() {
 				RemoteGetter: func(r string) *ssh.Client {
 					return remotes[r].Client
 				},
+				Logger: l.With("src", c.Source, "dst", d),
 			})
 		}
 	}
 
 	for rn, rc := range conf.Remotes {
-		remotes[rn] = &remote.Remote{Config: rc, Keys: conf.SSHKeys, Name: rn}
+		remotes[rn] = &remote.Remote{
+			Name:   rn,
+			Config: rc,
+			Keys:   conf.SSHKeys,
+			Logger: l.With("name",rn),
+		}
 		go remotes[rn].Start(func(rnf string, state int) {
 			for _, c := range connections {
 				go c.RemoteCallback(rnf, state)
@@ -61,4 +70,9 @@ func main() {
 	c := make(chan os.Signal)
 	signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 	<-c
+	l.Infow("Shutting down")
+	for _, r := range remotes {
+		r.Stop = true
+		_ = r.Client.Close()
+	}
 }
