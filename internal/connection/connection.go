@@ -114,9 +114,7 @@ func (c *Connection) handleClient(client net.Conn) {
 		return
 	}
 	c.srcs = append(c.srcs, r)
-	defer func(client net.Conn) {
-		_ = client.Close()
-	}(client)
+
 	chDone := make(chan bool)
 
 	go func() {
@@ -130,4 +128,6 @@ func (c *Connection) handleClient(client net.Conn) {
 	}()
 
 	<-chDone
+	_ = client.Close()
+	_ = r.Close()
 }
