@@ -138,6 +138,11 @@ func (c *Connection) handleClient(client net.Conn) {
 	}()
 
 	<-chDone
+	go func(){
+		<-chDone
+		close(chDone)
+	}()
+
 	_ = client.Close()
 	if err := client.Close();err!=nil&&err!=io.EOF{
 		l.Warnw("Failed closing dial-in connection", "reason", err)
