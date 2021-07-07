@@ -9,6 +9,6 @@ type Endpoint struct {
 	Remote string `json:"remote,omitempty"`
 }
 
-func (e Endpoint) String() string{
-	return strings.Join(funk.FilterString([]string{e.Type,e.Remote,e.Addr},func(s string)bool{return s!=""}),":")
+func (e Endpoint) String() string {
+	return strings.Join(funk.FilterString([]string{e.Type, e.Remote, e.Addr}, func(s string) bool { return s != "" }), ":")
 }

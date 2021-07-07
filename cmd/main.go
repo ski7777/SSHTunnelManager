@@ -58,7 +58,7 @@ func main() {
 			Name:   rn,
 			Config: rc,
 			Keys:   conf.SSHKeys,
-			Logger: l.With("name",rn),
+			Logger: l.With("name", rn),
 		}
 		go remotes[rn].Start(func(rnf string, state int) {
 			for _, c := range connections {

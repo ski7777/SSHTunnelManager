@@ -19,7 +19,7 @@ type Remote struct {
 	sshconfig ssh.ClientConfig
 	Client    *ssh.Client
 	Stop      bool
-	Logger *zap.SugaredLogger
+	Logger    *zap.SugaredLogger
 }
 
 func (r *Remote) genConfig() {
@@ -48,13 +48,13 @@ func (r *Remote) Start(cb func(rn string, state int)) {
 remoteloop:
 	for !r.Stop {
 		var err error
-		r.Logger.Infow("Connecting remote",)
+		r.Logger.Infow("Connecting remote")
 		r.Client, err = ssh.Dial("tcp", r.Config.Addr, &r.sshconfig)
 		if err != nil {
-			r.Logger.Infow("Failed connecting remote", "reason",err)
+			r.Logger.Infow("Failed connecting remote", "reason", err)
 			continue remoteloop
 		}
-		r.Logger.Infow("Connected remote",)
+		r.Logger.Infow("Connected remote")
 		go cb(r.Name, StateUp)
 		err = r.Client.Wait()
 		r.Logger.Infow("Disconnected remote", "reason", err)

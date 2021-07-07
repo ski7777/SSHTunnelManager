@@ -107,13 +107,13 @@ func (c *Connection) close() {
 }
 
 func (c *Connection) handleClient(client net.Conn) {
-	l:=c.Logger.With("client",client.RemoteAddr())
+	l := c.Logger.With("client", client.RemoteAddr())
 	l.Debugw("Connecting")
 	r, err := c.dialer()
 	if err != nil {
 		c.Logger.Warnw("Dialing failed", "reason", err)
 		if r != nil {
-			if err := r.Close();err!=nil{
+			if err := r.Close(); err != nil {
 				l.Warnw("Failed closing dial-out connection", "reason", err)
 			}
 		}
@@ -124,30 +124,30 @@ func (c *Connection) handleClient(client net.Conn) {
 	chDone := make(chan bool)
 
 	go func() {
-		if _, err := io.Copy(client, r);err!=nil&&err!=io.EOF{
+		if _, err := io.Copy(client, r); err != nil && err != io.EOF {
 			l.Warnw("Failed transfering data", "reason", err)
 		}
 		chDone <- true
 	}()
 
 	go func() {
-		if _, err := io.Copy( r,client);err!=nil&&err!=io.EOF{
+		if _, err := io.Copy(r, client); err != nil && err != io.EOF {
 			l.Warnw("Failed transfering data", "reason", err)
 		}
 		chDone <- true
 	}()
 
 	<-chDone
-	go func(){
+	go func() {
 		<-chDone
 		close(chDone)
 	}()
 
 	_ = client.Close()
-	if err := client.Close();err!=nil&&err!=io.EOF{
+	if err := client.Close(); err != nil && err != io.EOF {
 		l.Warnw("Failed closing dial-in connection", "reason", err)
 	}
-	if err := r.Close();err!=nil&&err!=io.EOF{
+	if err := r.Close(); err != nil && err != io.EOF {
 		l.Warnw("Failed closing dial-out connection", "reason", err)
 	}
 	l.Debugw("Disconnected")
