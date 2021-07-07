@@ -17,7 +17,6 @@ type Connection struct {
 	RemoteGetter     func(r string) *ssh.Client
 	dialer           func() (net.Conn, error)
 	dest             net.Listener
-	srcs             []net.Conn
 	Logger           *zap.SugaredLogger
 }
 
@@ -96,14 +95,6 @@ func (c *Connection) close() {
 		_ = c.dest.Close()
 		c.dest = nil
 	}
-	for _, s := range c.srcs {
-		if s != nil {
-			go func() {
-				_ = s.Close()
-			}()
-		}
-	}
-	c.srcs = nil
 }
 
 func (c *Connection) handleClient(client net.Conn) {
@@ -119,7 +110,6 @@ func (c *Connection) handleClient(client net.Conn) {
 		}
 		return
 	}
-	c.srcs = append(c.srcs, r)
 
 	chDone := make(chan bool)
 
